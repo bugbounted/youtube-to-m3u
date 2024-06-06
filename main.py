@@ -4,6 +4,8 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import requests
 import re
+from flask import Flask
+import threading
 
 # Load settings from ini file
 config = configparser.ConfigParser()
@@ -14,6 +16,7 @@ RETRIES = config.getint('Settings', 'RETRIES', fallback=5)
 BACKOFF_FACTOR = config.getfloat('Settings', 'BACKOFF_FACTOR', fallback=0.1)
 
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 def setup_session() -> requests.Session:
     session = requests.Session()
@@ -24,7 +27,7 @@ def setup_session() -> requests.Session:
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, "Send me a Live YouTube link, and I'll try to find the .m3u8 link for you!")
-    
+
 @bot.message_handler(commands=['about'])
 def send_about(message):
     bot.reply_to(message, "This bot is created to help users fetch .m3u8 links from Live YouTube URLs. For any questions or suggestions, please contact @FairyRoot. Enjoy!")
@@ -35,7 +38,7 @@ def grab(message):
     if not ("youtube.com" in url or "youtu.be" in url):
         bot.reply_to(message, "Please provide a valid YouTube URL.")
         return
-    
+
     session = setup_session()
     try:
         response = session.get(url, timeout=TIMEOUT).text
@@ -58,6 +61,13 @@ def grab(message):
     except Exception as e:
         bot.reply_to(message, f"An unexpected error occurred: {e}")
 
+@app.route('/')
+def index():
+    return "Welcome to the YouTube M3U8 Link Fetcher Bot!"
+
 if __name__ == '__main__':
+    # Run the Flask app in a separate thread
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5000)).start()
+
     print("[ * ] Bot is running...")
     bot.polling()
